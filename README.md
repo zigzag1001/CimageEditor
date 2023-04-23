@@ -1,2 +1,2 @@
-# CimageEditor
-i dunno, edit images through scripts
+# pixelWind
+i dunno, glitch images through scripts
