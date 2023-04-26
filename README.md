@@ -1,9 +1,13 @@
 # pixelWind
 i dunno, glitch images through scripts
 
+![pxlWind](https://github.com/zigzag1001/pixelWind/blob/main/out/output1.gif)
 
-![example](https://github.com/zigzag1001/pixelWind/blob/main/out/output1.gif)
+pxlWind
 
+![pxlBleed](https://github.com/zigzag1001/pixelWind/blob/main/out/output5.gif)
+
+pxlBleed
 
 ## Compile
 linux: `clang main.c -Ofast -flto -march=native -mtune=native -fuse-ld=lld -lm -o main`
