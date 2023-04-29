@@ -1,5 +1,9 @@
+![output](https://user-images.githubusercontent.com/72932714/235327171-29bee873-2f3e-4d81-ab47-c9eecd91f1e1.gif)
+
+
 # pixelWind
 i dunno, glitch images through scripts
+
 
 ![pxlWind](https://github.com/zigzag1001/pixelWind/blob/main/out/output1.gif)
 
