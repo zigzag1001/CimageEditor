@@ -20,6 +20,6 @@ windows: `clang main.c -Ofast -flto -march=native -mtune=native -fuse-ld=lld -o 
 
 
 ### Run
-`main inputImage pxlBleed/pxlWind numberOfSteps`
+`main inputImage pxlBleed/pxlWind numberOfSteps randomOffset fps`
 
-Example: `main img.jpg pxlBleed 20`
+Example: `main img.jpg pxlBleed 20 4 13`

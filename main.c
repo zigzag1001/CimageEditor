@@ -26,7 +26,7 @@ static inline void loadImg(char *filename, int *width, int *height, int *channel
     memcpy(img_copy, img, *width * *height * *channels);
 }
 
-static inline void pxlWind(char filename[], int width, int height, int channels)
+static inline void pxlWind(char filename[], int width, int height, int channels, int rand_len_modifier)
 {
     // modify the copy of the image instead of the original image
     uint8_t *img_mod = (uint8_t *) malloc(width * height * channels * 4);
@@ -42,7 +42,7 @@ static inline void pxlWind(char filename[], int width, int height, int channels)
 
             if (brightness < 128 || rand() % 100 < 10)
             {
-                int rand_len = rand() % 4;
+                int rand_len = rand() % rand_len_modifier;
                 for (int i = 0; i < rand_len; i++)
                 {
                     int j = x + i;
@@ -61,9 +61,9 @@ static inline void pxlWind(char filename[], int width, int height, int channels)
     free(img_mod);
 }
 
-static inline void pxlBleed(char filename[], int width, int height, int channels)
+static inline void pxlBleed(char filename[], int width, int height, int channels, int rand_len_modifier)
 {
-    for (int y = 0; y < height; y++)
+    for (int y = 0; y < height-1; y++)
     {
         for (int x = 0; x < width; x++)
         {
@@ -73,7 +73,7 @@ static inline void pxlBleed(char filename[], int width, int height, int channels
 
             if (brightness < 128 || rand() % 100 < 10)
             {
-                int rand_len = rand() % 3;
+                int rand_len = rand() % rand_len_modifier;
                 for (int i = 0; i < rand_len; i++)
                 {
                     int j = x + i;
@@ -99,27 +99,40 @@ int main(int argc, char **argv)
     printf("%d", n);
     int width, height, channels;
     loadImg(filename, &width, &height, &channels);
-
+    int rand_len_mod_arg = 0;
+    if (argc > 4)
+        sscanf(argv[4], "%d", &rand_len_mod_arg);
+    printf("%d", rand_len_mod_arg);
     char path[50];
     if (strcmp(argv[2], "pxlWind") == 0) {
         for (int i = 0; i < n; i++)
         {
             sprintf(path, "./img/%04d.png", i);
-            pxlWind(path, width, height, channels);
+            if (rand_len_mod_arg == 0)
+                rand_len_mod_arg = 4;
+            pxlWind(path, width, height, channels, rand_len_mod_arg);
         }
     } else if (strcmp(argv[2], "pxlBleed") == 0) {
         for (int i = 0; i < n; i++)
         {
             sprintf(path, "./img/%04d.png", i);
-            pxlBleed(path, width, height, channels);
+            if (rand_len_mod_arg == 0)
+                rand_len_mod_arg = 3;
+            pxlBleed(path, width, height, channels, rand_len_mod_arg);
         }
     } else {
         printf("Unknown effect %s", argv[2]);
         exit(1);
     }
+    int frame_rate = 13;
+    if (argc > 5)
+        sscanf(argv[5], "%d", &frame_rate);
+
+    char cmd[100];
+    sprintf(cmd, "ffmpeg -y -framerate %d -i ./img/%%04d.png -pix_fmt rgb8 -loop 0 -filter_complex \"scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos[x];[x]split[x1][x2];[x1]palettegen[p];[x2][p]paletteuse\" ./out/output.gif", frame_rate);
 
     // make gif
-    system("ffmpeg -framerate 13 -i ./img/%04d.png -pix_fmt rgb8 -loop 0 -filter_complex \"scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos[x];[x]split[x1][x2];[x1]palettegen[p];[x2][p]paletteuse\" ./out/output.gif");
+    system(cmd);
 
     // delete images in img folder without using system
     char path2[50];
