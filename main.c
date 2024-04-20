@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <getopt.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image/stb_image.h"
@@ -88,48 +89,61 @@ void test(uint8_t* img, int randOffset, int randChance, int tolerance) {
 
 
 int main(int argc, char** argv) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <image>\n", argv[0]);
-        return 1;
+    int opt;
+    struct {
+        int iterations;
+        int offset;
+        int tol;
+        int frame_rate;
+        int randChance;
+        int help;
+    } arguments = {50, 2, 128, 20, 10};
+
+    while ((opt = getopt(argc, argv, "i:o:t:f:r:h")) != -1) {
+        switch (opt) {
+            case 'i':
+                arguments.iterations = atoi(optarg);
+                break;
+            case 'o':
+                arguments.offset = atoi(optarg);
+                break;
+            case 't':
+                arguments.tol = atoi(optarg);
+                break;
+            case 'f':
+                arguments.frame_rate = atoi(optarg);
+                break;
+            case 'r':
+                arguments.randChance = atoi(optarg);
+                break;
+            case 'h':
+                arguments.help = 1;
+                break;
+            default:
+                fprintf(stderr, "Usage: %s [-i iterations] [-o offset] [-t tolerance] [-f frame_rate] [-r randChance] image\n", argv[0]);
+                exit(1);
+        }
     }
-    int offset = 2, chance = 10, tol = 128, frame_rate = 15;
-    switch (argc) {
-        case 2:
-            loadImg(argv[1], &img_w, &img_h, &img_c);
-            break;
-        case 3:
-            loadImg(argv[1], &img_w, &img_h, &img_c);
-            offset = atoi(argv[2]);
-            break;
-        case 4:
-            loadImg(argv[1], &img_w, &img_h, &img_c);
-            offset = atoi(argv[2]);
-            chance = atoi(argv[3]);
-            break;
-        case 5:
-            loadImg(argv[1], &img_w, &img_h, &img_c);
-            offset = atoi(argv[2]);
-            chance = atoi(argv[3]);
-            tol = atoi(argv[4]);
-            break;
-        case 6:
-            loadImg(argv[1], &img_w, &img_h, &img_c);
-            offset = atoi(argv[2]);
-            chance = atoi(argv[3]);
-            tol = atoi(argv[4]);
-            frame_rate = atoi(argv[5]);
-            break;
-        default:
-            fprintf(stderr, "Usage: %s <image>\n", argv[0]);
-            return 1;
+
+    if (arguments.help) {
+        printf("Usage: %s [-i iterations] [-o offset] [-t tolerance] [-f frame_rate] [-r randChance] image\n", argv[0]);
+        exit(0);
     }
+
+    if (optind >= argc) {
+        fprintf(stderr, "Expected image path\n");
+        exit(1);
+    }
+
+    loadImg(argv[optind], &img_w, &img_h, &img_c);
+
     printf("Loaded image with dimensions %dx%d and %d channels\n", img_w, img_h, img_c);
     printf("Total pixels: %d\n", img_w * img_h);
 
     uint8_t* mod_img =  malloc(img_w * img_h * img_c);
     memcpy(mod_img, og_img, img_w * img_h * img_c);
-    for (int i = 0; i < 50; i++) {
-        test(mod_img, offset, chance, tol);
+    for (int i = 0; i < arguments.iterations; i++) {
+        test(mod_img, arguments.offset, arguments.randChance, arguments.tol);
         srand(i);
         printf("Test %d\n", i);
         char filename[50];
@@ -143,7 +157,8 @@ int main(int argc, char** argv) {
     stbi_image_free(og_img);
 
     char cmd[500];
-    sprintf(cmd, "ffmpeg -y -framerate %d -i ./img/%%04d.png -pix_fmt rgb8 -loop 0 -filter_complex \"scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos[x];[x]split[x1][x2];[x1]palettegen[p];[x2][p]paletteuse\" ./out/output.gif", frame_rate);
+    // sprintf(cmd, "ffmpeg -y -framerate %d -i ./img/%%04d.png -pix_fmt rgb8 -loop 0 -filter_complex \"scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos[x];[x]split[x1][x2];[x1]palettegen[p];[x2][p]paletteuse\" ./out/output.gif", arguments.frame_rate);
+    sprintf(cmd, "ffmpeg -y -framerate %d -i ./img/%%04d.png -filter_complex \"format=rgba,split[x1][x2];[x1]palettegen[p];[x2][p]paletteuse\" -loop 0 ./out/output.gif", arguments.frame_rate);
     system(cmd);
 
     return 0;
