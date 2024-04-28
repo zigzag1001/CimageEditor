@@ -17,6 +17,20 @@
 static uint8_t* og_img;
 static int img_w, img_h, img_c;
 
+struct arguments {
+    int iterations;
+    int offset;
+    int tol;
+    int frame_rate;
+    int randChance;
+    char *mode;
+    int xy_mode;
+    char *output;
+    char *input;
+};
+
+typedef struct arguments Arguments;
+
 void loadImg(const char* path, int* w, int* h, int* c) {
     og_img = stbi_load(path, w, h, c, 0);
     if (!og_img) {
@@ -147,20 +161,87 @@ bool isint(char* str) {
 }
 
 
+void cleanDir(const char* path) {
+    struct dirent *de;
+    DIR *dr = opendir(path);
+    if (dr == NULL) {
+        mkdir(path, 0777);
+        return;
+    }
+    else {
+        while ((de = readdir(dr)) != NULL) {
+            if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0) {
+                continue;
+            }
+            char file[50];
+            strcpy(file, path);
+            strcat(file, "/");
+            strcat(file, de->d_name);
+            remove(file);
+        }
+        closedir(dr);
+    }
+}
+
+
+void modify(Arguments *arguments) {
+
+    loadImg(arguments->input, &img_w, &img_h, &img_c);
+
+    printf("Loaded image with dimensions %dx%d and %d channels\n", img_w, img_h, img_c);
+
+    // Initialize modified image
+    uint8_t* mod_img =  malloc(img_w * img_h * img_c);
+    memcpy(mod_img, og_img, img_w * img_h * img_c);
+
+    for (int i = 0; i < arguments->iterations; i++) {
+        if (arguments->mode == NULL || strcmp(arguments->mode, "bleed") == 0 || strcmp(arguments->mode, "wind") == 0)
+            pxlBleed(mod_img, arguments->offset, arguments->randChance, arguments->tol, arguments->xy_mode);
+        else if (strcmp(arguments->mode, "diffuse") == 0 || strcmp(arguments->mode, "haze") == 0)
+            pxlDiffuse(mod_img, arguments->offset, arguments->randChance, arguments->tol, arguments->xy_mode);
+
+        srand(i);
+
+        printf("\r");
+        printf("Processing frame %d/%d", i, arguments->iterations);
+
+        if (endsWith(arguments->output, ".gif")) {
+            char filename[50];
+            strcpy(filename, "./img/");
+            char num[5];
+            sprintf(num, "%04d", i);
+            strcat(filename, num);
+            strcat(filename, ".png");
+            saveImg(filename, img_w, img_h, img_c, mod_img);
+        }
+
+        if (arguments->mode != NULL && (strcmp(arguments->mode, "wind") == 0 || strcmp(arguments->mode, "haze") == 0))
+            memcpy(mod_img, og_img, img_w * img_h * img_c);
+    }
+    if (!endsWith(arguments->output, ".gif"))
+        saveImg(arguments->output, img_w, img_h, img_c, mod_img);
+}
+
 int main(int argc, char** argv) {
     int opt;
-    struct {
-        int iterations;
-        int offset;
-        int tol;
-        int frame_rate;
-        int randChance;
-        char *mode;
-        int xy_mode;
-        char *output;
-        char *input;
-    } arguments = {50, 2, 128, 20, 10, NULL, 2, NULL, NULL};
 
+
+    Arguments arguments;
+
+    Arguments *args = &arguments;
+
+    arguments.iterations = 50;
+    arguments.offset = 2;
+    arguments.tol = 128;
+    arguments.frame_rate = 20;
+    arguments.randChance = 10;
+    arguments.mode = NULL;
+    arguments.xy_mode = 2;
+    arguments.output = NULL;
+    arguments.input = NULL;
+
+
+    // Parse arguments
     while ((opt = getopt(argc, argv, "I:i:o:O:t:f:r:m:hxy")) != -1) {
         switch (opt) {
             case 'I':
@@ -236,70 +317,70 @@ int main(int argc, char** argv) {
         }
     }
 
+    // Check if input image is provided
     if (optind >= argc && arguments.input == NULL) {
         fprintf(stderr, "Expected input image path\n");
         exit(1);
     }
 
-    struct dirent *de;
-    DIR *dr = opendir("./img");
-    if (dr == NULL) {
-        mkdir("./img", 0777);
-    }
-    else {
-        while ((de = readdir(dr)) != NULL) {
-            if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0) {
-                continue;
-            }
-            char path[50];
-            strcpy(path, "./img/");
-            strcat(path, de->d_name);
-            remove(path);
-        }
-        closedir(dr);
+    // handle directory
+    cleanDir("./img");
+
+    // set input image
+    if (!arguments.input) {
+        arguments.input = argv[optind];
     }
 
-    if (arguments.input) {
-        loadImg(arguments.input, &img_w, &img_h, &img_c);
-    }
-    else {
-        loadImg(argv[optind], &img_w, &img_h, &img_c);
-    }
 
-    printf("Loaded image with dimensions %dx%d and %d channels\n", img_w, img_h, img_c);
-
+    // Initialize modified image
     uint8_t* mod_img =  malloc(img_w * img_h * img_c);
     memcpy(mod_img, og_img, img_w * img_h * img_c);
 
-    char* progress = "Processing frame %d/%d";
-
+    // Set default output file
     if (arguments.output == NULL) {
         arguments.output = "output.gif";
     }
 
+    char og_output[50];
+    strcpy(og_output, arguments.output);
+    char og_input[50];
+    strcpy(og_input, arguments.input);
+
     clock_t start = clock();
 
-    for (int i = 0; i < arguments.iterations; i++) {
-        if (arguments.mode == NULL || strcmp(arguments.mode, "bleed") == 0 || strcmp(arguments.mode, "wind") == 0)
-            pxlBleed(mod_img, arguments.offset, arguments.randChance, arguments.tol, arguments.xy_mode);
-        else if (strcmp(arguments.mode, "diffuse") == 0 || strcmp(arguments.mode, "haze") == 0)
-            pxlDiffuse(mod_img, arguments.offset, arguments.randChance, arguments.tol, arguments.xy_mode);
-
-        srand(i);
-
-        printf("\r");
-        printf(progress, i, arguments.iterations);
-
-        char filename[50];
-        strcpy(filename, "./img/");
-        char num[5];
-        sprintf(num, "%04d", i);
-        strcat(filename, num);
-        strcat(filename, ".png");
-        saveImg(filename, img_w, img_h, img_c, mod_img);
-
-        if (arguments.mode != NULL && (strcmp(arguments.mode, "wind") == 0 || strcmp(arguments.mode, "haze") == 0))
-            memcpy(mod_img, og_img, img_w * img_h * img_c);
+    if (endsWith(arguments.input, ".png") || endsWith(arguments.input, ".jpg") || endsWith(arguments.input, ".jpeg")) {
+        modify(args);
+    }
+    else if (endsWith(arguments.input, ".gif") || endsWith(arguments.input, ".mp4")) {
+        cleanDir("./frames");
+        char cmd[500];
+        sprintf(cmd, "ffmpeg -i %s ./frames/%%04d.png", arguments.input);
+        system(cmd);
+        struct dirent *de;
+        DIR *dr = opendir("./frames");
+        if (dr == NULL) {
+            fprintf(stderr, "Failed to load frames\n");
+            exit(1);
+        }
+        char path[50];
+        char processed_path[50];
+        while ((de = readdir(dr)) != NULL) {
+            if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0) {
+                continue;
+            }
+            strcpy(path, "./frames/");
+            strcat(path, de->d_name);
+            strcpy(processed_path, "./img/");
+            strcat(processed_path, de->d_name);
+            arguments.input = path;
+            arguments.output = processed_path;
+            modify(args);
+        }
+        closedir(dr);
+    }
+    else {
+        fprintf(stderr, "Invalid input file type\n");
+        exit(1);
     }
 
     clock_t end = clock();
@@ -308,15 +389,23 @@ int main(int argc, char** argv) {
 
     stbi_image_free(og_img);
 
-    // if output ends with .gif
-    if (endsWith(arguments.output, ".gif")) {
+    // if output ends with .gif then convert all images to gif
+    if (endsWith(og_output, ".gif")) {
         char cmd[500];
-        sprintf(cmd, "ffmpeg -y -framerate %d -i ./img/%%04d.png -filter_complex \"format=rgba,split[x1][x2];[x1]palettegen[p];[x2][p]paletteuse\" -loop 0 %s", arguments.frame_rate, arguments.output);
+        char img_path[50];
+        strcpy(img_path, "./img/%04d.png");
+        strcpy(cmd, "ffmpeg -y -framerate ");
+        char fr[5];
+        sprintf(fr, "%d", arguments.frame_rate);
+        strcat(cmd, fr);
+        strcat(cmd, " -i ");
+        strcat(cmd, img_path);
+        strcat(cmd, " -filter_complex \"format=rgba,split[x1][x2];[x1]palettegen[p];[x2][p]paletteuse\" -loop 0 ");
+        strcat(cmd, og_output);
         system(cmd);
-        return 0;
-    }
-    else if (endsWith(arguments.output, ".png") || endsWith(arguments.output, ".jpg") || endsWith(arguments.output, ".jpeg")) {
-        saveImg(arguments.output, img_w, img_h, img_c, mod_img);
+    } // else if output ends with .png or .jpg then save the last image
+    else if (endsWith(og_output, ".png") || endsWith(og_output, ".jpg") || endsWith(og_output, ".jpeg")) {
+        saveImg(og_output, img_w, img_h, img_c, mod_img);
     }
     else {
         fprintf(stderr, "Invalid output file type\n");
