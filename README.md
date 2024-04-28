@@ -1,21 +1,22 @@
 <div align="center">
-    <img src="./examples/bleedlogo2.png" width="400" height="200">
+    <img src="./examples/bleedlogo2.png" width="750" height="300">
     <h1> pixelWind </h1>
     <p>
         <b>Edgy image processing 😎</b>
     </p>
+    <br>    
+    A tool to apply fun pixel-sorting-esque effects to images.
     <br>
     <br>
-    <br>
+    <h2>Examples 👇</h2>
 </div>
 
-This is a tool to apply fun pixel-sorting-esque effects to images.
 
 
 
 
 # Usage
-<br>
+
 Example Usage: `./main img.png -O 4 -y -o cool.gif`
 
 `img.png` - Input image
