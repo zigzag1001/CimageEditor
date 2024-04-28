@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <getopt.h>
 #include <stdbool.h>
+#include <time.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image/stb_image.h"
@@ -46,9 +50,9 @@ int getIndex(int x, int y) {
 }
 
 int getPxlBrightness(uint8_t* img, int x, int y) {
-    // if (img_c == 4 && img[(y * img_w + x) * img_c + 3] == 0) {
-    //     return 255;
-    // }
+    if (img_c == 4 && img[(y * img_w + x) * img_c + 3] == 0) {
+        return 255;
+    }
     int sum = 0;
     for (int c = 0; c < 3; c++) {
         sum += img[(y * img_w + x) * img_c + c];
@@ -120,6 +124,28 @@ void pxlDiffuse(uint8_t* img, int randOffset, int randChance, int tolerance, int
 }
 
 
+bool endsWith(const char* str, const char* suffix) {
+    if (!str || !suffix) {
+        return 0;
+    }
+    size_t str_len = strlen(str);
+    size_t suffix_len = strlen(suffix);
+    if (suffix_len > str_len) {
+        return 0;
+    }
+    return 0 == strncmp(str + str_len - suffix_len, suffix, suffix_len);
+}
+
+
+bool isint(char* str) {
+    for (int i = 0; i < strlen(str); i++) {
+        if (str[i] < '0' || str[i] > '9') {
+            return false;
+        }
+    }
+    return true;
+}
+
 
 int main(int argc, char** argv) {
     int opt;
@@ -131,23 +157,51 @@ int main(int argc, char** argv) {
         int randChance;
         char *mode;
         int xy_mode;
-    } arguments = {50, 2, 128, 20, 10, NULL, 2};
+        char *output;
+        char *input;
+    } arguments = {50, 2, 128, 20, 10, NULL, 2, NULL, NULL};
 
-    while ((opt = getopt(argc, argv, "i:o:t:f:r:m:hxy")) != -1) {
+    while ((opt = getopt(argc, argv, "I:i:o:O:t:f:r:m:hxy")) != -1) {
         switch (opt) {
-            case 'i':
+            case 'I':
+                if (!isint(optarg)) {
+                    fprintf(stderr, "Invalid number of iterations\n");
+                    exit(1);
+                }
                 arguments.iterations = atoi(optarg);
                 break;
-            case 'o':
+            case 'i':
+                arguments.input = optarg;
+                break;
+            case 'O':
+                if (!isint(optarg)) {
+                    fprintf(stderr, "Invalid offset\n");
+                    exit(1);
+                }
                 arguments.offset = atoi(optarg);
                 break;
+            case 'o':
+                arguments.output = optarg;
+                break;
             case 't':
+                if (!isint(optarg)) {
+                    fprintf(stderr, "Invalid tolerance\n");
+                    exit(1);
+                }
                 arguments.tol = atoi(optarg);
                 break;
             case 'f':
+                if (!isint(optarg)) {
+                    fprintf(stderr, "Invalid frame rate\n");
+                    exit(1);
+                }
                 arguments.frame_rate = atoi(optarg);
                 break;
             case 'r':
+                if (!isint(optarg)) {
+                    fprintf(stderr, "Invalid randChance\n");
+                    exit(1);
+                }
                 arguments.randChance = atoi(optarg);
                 break;
             case 'm':
@@ -162,14 +216,16 @@ int main(int argc, char** argv) {
             case 'h':
                 printf("Usage: %s [-i iterations] [-o offset] [-t tolerance] [-f frame_rate] [-r randChance] [-m mode] [-xy] image\n", argv[0]);
                 printf("Options:\n"
-                        "  -i iterations: Number of frames to generate (default 50)\n"
-                        "  -o offset: Maximum pixel offset (default 2)\n"
+                        "  -I iterations: Number of frames to generate (default 50)\n"
+                        "  -O offset: Maximum pixel offset (default 2)\n"
                         "  -t tolerance: Minimum brightness to trigger effect (default 128)\n"
                         "  -f frame_rate: Frame rate of output gif (default 20)\n"
                         "  -r randChance: Chance of effect happening (default 10)\n"
                         "  -m mode: Effect mode bleed/diffuse/wind/haze (default bleed)\n"
                         "  -x: Only offset x axis\n"
                         "  -y: Only offset y axis\n"
+                        "  -o output: Output file (default output.gif)\n"
+                        "  -i input: Input file\n"
                         "  -h: Show help\n"
                         "  image: Path to image\n"
                 );
@@ -180,12 +236,35 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (optind >= argc) {
-        fprintf(stderr, "Expected image path\n");
+    if (optind >= argc && arguments.input == NULL) {
+        fprintf(stderr, "Expected input image path\n");
         exit(1);
     }
 
-    loadImg(argv[optind], &img_w, &img_h, &img_c);
+    struct dirent *de;
+    DIR *dr = opendir("./img");
+    if (dr == NULL) {
+        mkdir("./img", 0777);
+    }
+    else {
+        while ((de = readdir(dr)) != NULL) {
+            if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0) {
+                continue;
+            }
+            char path[50];
+            strcpy(path, "./img/");
+            strcat(path, de->d_name);
+            remove(path);
+        }
+        closedir(dr);
+    }
+
+    if (arguments.input) {
+        loadImg(arguments.input, &img_w, &img_h, &img_c);
+    }
+    else {
+        loadImg(argv[optind], &img_w, &img_h, &img_c);
+    }
 
     printf("Loaded image with dimensions %dx%d and %d channels\n", img_w, img_h, img_c);
 
@@ -194,11 +273,18 @@ int main(int argc, char** argv) {
 
     char* progress = "Processing frame %d/%d";
 
+    if (arguments.output == NULL) {
+        arguments.output = "output.gif";
+    }
+
+    clock_t start = clock();
+
     for (int i = 0; i < arguments.iterations; i++) {
         if (arguments.mode == NULL || strcmp(arguments.mode, "bleed") == 0 || strcmp(arguments.mode, "wind") == 0)
             pxlBleed(mod_img, arguments.offset, arguments.randChance, arguments.tol, arguments.xy_mode);
         else if (strcmp(arguments.mode, "diffuse") == 0 || strcmp(arguments.mode, "haze") == 0)
             pxlDiffuse(mod_img, arguments.offset, arguments.randChance, arguments.tol, arguments.xy_mode);
+
         srand(i);
 
         printf("\r");
@@ -215,12 +301,27 @@ int main(int argc, char** argv) {
         if (arguments.mode != NULL && (strcmp(arguments.mode, "wind") == 0 || strcmp(arguments.mode, "haze") == 0))
             memcpy(mod_img, og_img, img_w * img_h * img_c);
     }
+
+    clock_t end = clock();
+
+    printf("\n\nTime taken: %f seconds\n\n", (double)(end - start) / CLOCKS_PER_SEC);
+
     stbi_image_free(og_img);
 
-    char cmd[500];
-    // sprintf(cmd, "ffmpeg -y -framerate %d -i ./img/%%04d.png -pix_fmt rgb8 -loop 0 -filter_complex \"scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos[x];[x]split[x1][x2];[x1]palettegen[p];[x2][p]paletteuse\" ./out/output.gif", arguments.frame_rate);
-    sprintf(cmd, "ffmpeg -y -framerate %d -i ./img/%%04d.png -filter_complex \"format=rgba,split[x1][x2];[x1]palettegen[p];[x2][p]paletteuse\" -loop 0 ./out/output.gif", arguments.frame_rate);
-    system(cmd);
+    // if output ends with .gif
+    if (endsWith(arguments.output, ".gif")) {
+        char cmd[500];
+        sprintf(cmd, "ffmpeg -y -framerate %d -i ./img/%%04d.png -filter_complex \"format=rgba,split[x1][x2];[x1]palettegen[p];[x2][p]paletteuse\" -loop 0 %s", arguments.frame_rate, arguments.output);
+        system(cmd);
+        return 0;
+    }
+    else if (endsWith(arguments.output, ".png") || endsWith(arguments.output, ".jpg") || endsWith(arguments.output, ".jpeg")) {
+        saveImg(arguments.output, img_w, img_h, img_c, mod_img);
+    }
+    else {
+        fprintf(stderr, "Invalid output file type\n");
+        exit(1);
+    }
 
     return 0;
 }
