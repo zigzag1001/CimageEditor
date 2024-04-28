@@ -220,6 +220,9 @@ void modify(Arguments *arguments) {
     }
     if (!endsWith(arguments->output, ".gif"))
         saveImg(arguments->output, img_w, img_h, img_c, mod_img);
+
+    free(mod_img);
+    stbi_image_free(og_img);
 }
 
 int main(int argc, char** argv) {
@@ -332,10 +335,6 @@ int main(int argc, char** argv) {
     }
 
 
-    // Initialize modified image
-    uint8_t* mod_img =  malloc(img_w * img_h * img_c);
-    memcpy(mod_img, og_img, img_w * img_h * img_c);
-
     // Set default output file
     if (arguments.output == NULL) {
         arguments.output = "output.gif";
@@ -387,8 +386,6 @@ int main(int argc, char** argv) {
 
     printf("\n\nTime taken: %f seconds\n\n", (double)(end - start) / CLOCKS_PER_SEC);
 
-    stbi_image_free(og_img);
-
     // if output ends with .gif then convert all images to gif
     if (endsWith(og_output, ".gif")) {
         char cmd[500];
@@ -405,7 +402,7 @@ int main(int argc, char** argv) {
         system(cmd);
     } // else if output ends with .png or .jpg then save the last image
     else if (endsWith(og_output, ".png") || endsWith(og_output, ".jpg") || endsWith(og_output, ".jpeg")) {
-        saveImg(og_output, img_w, img_h, img_c, mod_img);
+        printf("Saved image to %s\n", og_output);
     }
     else {
         fprintf(stderr, "Invalid output file type\n");
