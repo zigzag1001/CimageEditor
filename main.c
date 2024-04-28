@@ -200,7 +200,7 @@ void modify(Arguments *arguments) {
         else if (strcmp(arguments->mode, "diffuse") == 0 || strcmp(arguments->mode, "haze") == 0)
             pxlDiffuse(mod_img, arguments->offset, arguments->randChance, arguments->tol, arguments->xy_mode);
 
-        srand(i);
+        srand(i+5);
 
         printf("\r");
         printf("Processing frame %d/%d", i, arguments->iterations);
