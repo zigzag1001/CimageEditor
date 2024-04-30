@@ -27,6 +27,7 @@ struct arguments {
     int xy_mode;
     char *output;
     char *input;
+    int animate_iters;
 };
 
 typedef struct arguments Arguments;
@@ -242,10 +243,11 @@ int main(int argc, char** argv) {
     arguments.xy_mode = 2;
     arguments.output = NULL;
     arguments.input = NULL;
+    arguments.animate_iters = 0;
 
 
     // Parse arguments
-    while ((opt = getopt(argc, argv, "I:i:o:O:t:f:r:m:hxy")) != -1) {
+    while ((opt = getopt(argc, argv, "I:i:o:O:t:f:r:m:a:hxy")) != -1) {
         switch (opt) {
             case 'I':
                 if (!isint(optarg)) {
@@ -297,6 +299,13 @@ int main(int argc, char** argv) {
             case 'y':
                 arguments.xy_mode = 1;
                 break;
+            case 'a':
+                if (!isint(optarg)) {
+                    fprintf(stderr, "Invalid animate offset\n");
+                    exit(1);
+                }
+                arguments.animate_iters = atoi(optarg);
+                break;
             case 'h':
                 printf("Usage: %s [-i iterations] [-o offset] [-t tolerance] [-f frame_rate] [-r randChance] [-m mode] [-xy] image\n", argv[0]);
                 printf("Options:\n"
@@ -306,6 +315,7 @@ int main(int argc, char** argv) {
                         "  -f frame_rate: Frame rate of output gif (default 20)\n"
                         "  -r randChance: Chance of effect happening (default 10)\n"
                         "  -m mode: Effect mode bleed/diffuse/wind/haze (default bleed)\n"
+                        "  -a animate_iters: animate number of iters for each frame of video/gif (default 0)\n"
                         "  -x: Only offset x axis\n"
                         "  -y: Only offset y axis\n"
                         "  -o output: Output file (default output.gif)\n"
@@ -374,6 +384,7 @@ int main(int argc, char** argv) {
             arguments.input = path;
             arguments.output = processed_path;
             modify(args);
+            arguments.iterations += arguments.animate_iters;
         }
         closedir(dr);
     }
