@@ -206,7 +206,7 @@ void modify(Arguments *arguments) {
         printf("\r");
         printf("Processing frame %d/%d", i, arguments->iterations);
 
-        if (endsWith(arguments->output, ".gif")) {
+        if (endsWith(arguments->output, ".gif") || endsWith(arguments->output, ".mp4")) {
             char filename[50];
             strcpy(filename, "./img/");
             char num[5];
@@ -219,7 +219,7 @@ void modify(Arguments *arguments) {
         if (arguments->mode != NULL && (strcmp(arguments->mode, "wind") == 0 || strcmp(arguments->mode, "haze") == 0))
             memcpy(mod_img, og_img, img_w * img_h * img_c);
     }
-    if (!endsWith(arguments->output, ".gif"))
+    if (!endsWith(arguments->output, ".gif") && !endsWith(arguments->output, ".mp4"))
         saveImg(arguments->output, img_w, img_h, img_c, mod_img);
 
     free(mod_img);
@@ -411,7 +411,21 @@ int main(int argc, char** argv) {
         strcat(cmd, " -filter_complex \"format=rgba,split[x1][x2];[x1]palettegen[p];[x2][p]paletteuse\" -loop 0 ");
         strcat(cmd, og_output);
         system(cmd);
-    } // else if output ends with .png or .jpg then save the last image
+    }
+    else if (endsWith(og_output, ".mp4")) {
+        char cmd[500];
+        char img_path[50];
+        strcpy(img_path, "./img/%04d.png");
+        strcpy(cmd, "ffmpeg -y -framerate ");
+        char fr[5];
+        sprintf(fr, "%d", arguments.frame_rate);
+        strcat(cmd, fr);
+        strcat(cmd, " -i ");
+        strcat(cmd, img_path);
+        strcat(cmd, " -c:v libx264 -pix_fmt yuv420p ");
+        strcat(cmd, og_output);
+        system(cmd);
+    }
     else if (endsWith(og_output, ".png") || endsWith(og_output, ".jpg") || endsWith(og_output, ".jpeg")) {
         printf("Saved image to %s\n", og_output);
     }
