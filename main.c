@@ -28,6 +28,7 @@ struct arguments {
     char *output;
     char *input;
     int animate_iters;
+    int spill;
 };
 
 typedef struct arguments Arguments;
@@ -47,7 +48,15 @@ void saveImg(const char* path, int w, int h, int c, const uint8_t* img) {
     }
 }
 
+bool isOutOfBounds(int x, int y) {
+    return x < 0 || x >= img_w || y < 0 || y >= img_h;
+}
+
 void setPixel(uint8_t* img, int x, int y, int c, uint8_t val) {
+
+    if (x < 0 || x >= img_w || y < 0 || y >= img_h) {
+        return;
+    }
 
     img[(y * img_w + x) * img_c + c] = val;
 
@@ -76,6 +85,12 @@ int getPxlBrightness(uint8_t* img, int x, int y) {
 }
 
 void copyPxl(uint8_t* img, int x, int y, int new_x, int new_y) {
+    if (isOutOfBounds(new_x, new_y)) {
+        return;
+    }
+    else if (isOutOfBounds(x, y)) {
+        return;
+    }
 
     for (int c = 0; c < img_c; c++) {
         setPixel(img, new_x, new_y, c, getPixel(img, x, y, c));
@@ -90,12 +105,9 @@ void swapPxl(uint8_t* img, int x1, int y1, int x2, int y2) {
     }
 }
 
-bool isOutOfBounds(int x, int y) {
-    return x < 0 || x >= img_w || y < 0 || y >= img_h;
-}
 
-void pxlBleed(uint8_t* img, int randOffset, int randChance, int tolerance, int xy_mode) {
-    int dist, brightness;
+void pxlBleed(uint8_t* img, int randOffset, int randChance, int tolerance, int xy_mode, int spill) {
+    int dist, brightness, new_x, new_y;
     uint8_t* orig_img = malloc(img_w * img_h * img_c);
     memcpy(orig_img, img, img_w * img_h * img_c);
     for (int y = 0; y < img_h; y++) {
@@ -103,12 +115,18 @@ void pxlBleed(uint8_t* img, int randOffset, int randChance, int tolerance, int x
             brightness = getPxlBrightness(img, x, y);
             if (brightness < tolerance || rand() % 100 < randChance) {
                 dist = rand() % randOffset;
+                new_x = x + dist;
+                new_y = y + dist;
+                if (spill) {
+                    new_x = new_x % img_w;
+                    new_y = new_y % img_h;
+                } 
                 if (xy_mode == 0) {
-                    copyPxl(img, x, y, (x + dist) % img_w, y);
+                    copyPxl(img, x, y, new_x, y);
                 } else if (xy_mode == 1) {
-                    copyPxl(img, x, y, x, (y + dist) % img_h);
+                    copyPxl(img, x, y, x, new_y);
                 } else {
-                    copyPxl(img, x, y, (x + dist) % img_w, (y + dist) % img_h);
+                    copyPxl(img, x, y, new_x, new_y);
                 }
             }
         }
@@ -197,7 +215,7 @@ void modify(Arguments *arguments) {
 
     for (int i = 0; i < arguments->iterations; i++) {
         if (arguments->mode == NULL || strcmp(arguments->mode, "bleed") == 0 || strcmp(arguments->mode, "wind") == 0)
-            pxlBleed(mod_img, arguments->offset, arguments->randChance, arguments->tol, arguments->xy_mode);
+            pxlBleed(mod_img, arguments->offset, arguments->randChance, arguments->tol, arguments->xy_mode, arguments->spill);
         else if (strcmp(arguments->mode, "diffuse") == 0 || strcmp(arguments->mode, "haze") == 0)
             pxlDiffuse(mod_img, arguments->offset, arguments->randChance, arguments->tol, arguments->xy_mode);
 
@@ -244,10 +262,11 @@ int main(int argc, char** argv) {
     arguments.output = NULL;
     arguments.input = NULL;
     arguments.animate_iters = 0;
+    arguments.spill = 0;
 
 
     // Parse arguments
-    while ((opt = getopt(argc, argv, "I:i:o:O:t:f:r:m:a:hxy")) != -1) {
+    while ((opt = getopt(argc, argv, "I:i:o:O:t:f:r:m:a:hxys")) != -1) {
         switch (opt) {
             case 'I':
                 if (!isint(optarg)) {
@@ -298,6 +317,9 @@ int main(int argc, char** argv) {
                 break;
             case 'y':
                 arguments.xy_mode = 1;
+                break;
+            case 's':
+                arguments.spill = 1;
                 break;
             case 'a':
                 if (!isint(optarg)) {
