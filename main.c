@@ -54,7 +54,7 @@ bool isOutOfBounds(int x, int y) {
 
 void setPixel(uint8_t* img, int x, int y, int c, uint8_t val) {
 
-    if (x < 0 || x >= img_w || y < 0 || y >= img_h) {
+    if (x < 0 || x > img_w || y < 0 || y > img_h) {
         return;
     }
 
