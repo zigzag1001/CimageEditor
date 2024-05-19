@@ -28,7 +28,8 @@ struct arguments {
     char *output;
     char *input;
     int animate_iters;
-    int spill;
+    int wrap;
+    int size;
 };
 
 typedef struct arguments Arguments;
@@ -106,27 +107,31 @@ void swapPxl(uint8_t* img, int x1, int y1, int x2, int y2) {
 }
 
 
-void pxlBleed(uint8_t* img, int randOffset, int randChance, int tolerance, int xy_mode, int spill) {
+void pxlBleed(uint8_t* img, int randOffset, int randChance, int tolerance, int xy_mode, int wrap, int size) {
     int dist, brightness, new_x, new_y;
     uint8_t* orig_img = malloc(img_w * img_h * img_c);
     memcpy(orig_img, img, img_w * img_h * img_c);
-    for (int y = 0; y < img_h; y++) {
-        for (int x = 0; x < img_w; x++) {
+    for (int y = 0; y < img_h; y += size) {
+        for (int x = 0; x < img_w; x += size) {
             brightness = getPxlBrightness(img, x, y);
             if (brightness < tolerance || rand() % 100 < randChance) {
                 dist = rand() % randOffset;
                 new_x = x + dist;
                 new_y = y + dist;
-                if (spill) {
+                if (wrap) {
                     new_x = new_x % img_w;
                     new_y = new_y % img_h;
                 } 
-                if (xy_mode == 0) {
-                    copyPxl(img, x, y, new_x, y);
-                } else if (xy_mode == 1) {
-                    copyPxl(img, x, y, x, new_y);
-                } else {
-                    copyPxl(img, x, y, new_x, new_y);
+                for (int i = 0; i < size; i++) {
+                    for (int j = 0; j < size; j++) {
+                        if (xy_mode == 0) {
+                            copyPxl(img, x + i, y + j, new_x + i, y + j);
+                        } else if (xy_mode == 1) {
+                            copyPxl(img, x + i, y + j, x + i, new_y + j);
+                        } else {
+                            copyPxl(img, x + i, y + j, new_x + i, new_y + j);
+                        }
+                    }
                 }
             }
         }
@@ -215,7 +220,7 @@ void modify(Arguments *arguments) {
 
     for (int i = 0; i < arguments->iterations; i++) {
         if (arguments->mode == NULL || strcmp(arguments->mode, "bleed") == 0 || strcmp(arguments->mode, "wind") == 0)
-            pxlBleed(mod_img, arguments->offset, arguments->randChance, arguments->tol, arguments->xy_mode, arguments->spill);
+            pxlBleed(mod_img, arguments->offset, arguments->randChance, arguments->tol, arguments->xy_mode, arguments->wrap, arguments->size);
         else if (strcmp(arguments->mode, "diffuse") == 0 || strcmp(arguments->mode, "haze") == 0)
             pxlDiffuse(mod_img, arguments->offset, arguments->randChance, arguments->tol, arguments->xy_mode);
 
@@ -262,11 +267,12 @@ int main(int argc, char** argv) {
     arguments.output = NULL;
     arguments.input = NULL;
     arguments.animate_iters = 0;
-    arguments.spill = 0;
+    arguments.wrap = 0;
+    arguments.size = 1;
 
 
     // Parse arguments
-    while ((opt = getopt(argc, argv, "I:i:o:O:t:f:r:m:a:hxys")) != -1) {
+    while ((opt = getopt(argc, argv, "I:i:o:O:t:f:r:m:a:s:hxyw")) != -1) {
         switch (opt) {
             case 'I':
                 if (!isint(optarg)) {
@@ -309,6 +315,13 @@ int main(int argc, char** argv) {
                 }
                 arguments.randChance = atoi(optarg);
                 break;
+            case 's':
+                if (!isint(optarg)) {
+                    fprintf(stderr, "Invalid size\n");
+                    exit(1);
+                }
+                arguments.size = atoi(optarg);
+                break;
             case 'm':
                 arguments.mode = optarg;
                 break;
@@ -318,8 +331,8 @@ int main(int argc, char** argv) {
             case 'y':
                 arguments.xy_mode = 1;
                 break;
-            case 's':
-                arguments.spill = 1;
+            case 'w':
+                arguments.wrap = 1;
                 break;
             case 'a':
                 if (!isint(optarg)) {
