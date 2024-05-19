@@ -86,10 +86,7 @@ int getPxlBrightness(uint8_t* img, int x, int y) {
 }
 
 void copyPxl(uint8_t* img, int x, int y, int new_x, int new_y) {
-    if (isOutOfBounds(new_x, new_y)) {
-        return;
-    }
-    else if (isOutOfBounds(x, y)) {
+    if (isOutOfBounds(new_x, new_y) || isOutOfBounds(x, y)) {
         return;
     }
 
@@ -99,6 +96,9 @@ void copyPxl(uint8_t* img, int x, int y, int new_x, int new_y) {
 }
 
 void swapPxl(uint8_t* img, int x1, int y1, int x2, int y2) {
+    if (isOutOfBounds(x1, y1) || isOutOfBounds(x2, y2)) {
+        return;
+    }
     for (int c = 0; c < img_c; c++) {
         int tmp = getPixel(img, x1, y1, c);
         setPixel(img, x1, y1, c, getPixel(img, x2, y2, c));
@@ -139,21 +139,31 @@ void pxlBleed(uint8_t* img, int randOffset, int randChance, int tolerance, int x
     free(orig_img);
 }
 
-void pxlDiffuse(uint8_t* img, int randOffset, int randChance, int tolerance, int xy_mode) {
-    int dist, brightness;
+void pxlDiffuse(uint8_t* img, int randOffset, int randChance, int tolerance, int xy_mode, int wrap, int size) {
+    int dist, brightness, new_x, new_y;
     uint8_t* orig_img = malloc(img_w * img_h * img_c);
     memcpy(orig_img, img, img_w * img_h * img_c);
-    for (int y = 0; y < img_h; y++) {
-        for (int x = 0; x < img_w; x++) {
+    for (int y = 0; y < img_h; y += size) {
+        for (int x = 0; x < img_w; x += size) {
             brightness = getPxlBrightness(img, x, y);
             if (brightness < tolerance || rand() % 100 < randChance) {
                 dist = rand() % randOffset;
-                if (xy_mode == 0) {
-                    swapPxl(img, x, y, (x + dist) % img_w, y);
-                } else if (xy_mode == 1) {
-                    swapPxl(img, x, y, x, (y + dist) % img_h);
-                } else {
-                    swapPxl(img, x, y, (x + dist) % img_w, (y + dist) % img_h);
+                new_x = x + dist;
+                new_y = y + dist;
+                if (wrap) {
+                    new_x = new_x % img_w;
+                    new_y = new_y % img_h;
+                } 
+                for (int i = 0; i < size; i++) {
+                    for (int j = 0; j < size; j++) {
+                        if (xy_mode == 0) {
+                            swapPxl(img, x + i, y + j, new_x + i, y + j);
+                        } else if (xy_mode == 1) {
+                            swapPxl(img, x + i, y + j, x + i, new_y + j);
+                        } else {
+                            swapPxl(img, x + i, y + j, new_x + i, new_y + j);
+                        }
+                    }
                 }
             }
         }
@@ -222,7 +232,7 @@ void modify(Arguments *arguments) {
         if (arguments->mode == NULL || strcmp(arguments->mode, "bleed") == 0 || strcmp(arguments->mode, "wind") == 0)
             pxlBleed(mod_img, arguments->offset, arguments->randChance, arguments->tol, arguments->xy_mode, arguments->wrap, arguments->size);
         else if (strcmp(arguments->mode, "diffuse") == 0 || strcmp(arguments->mode, "haze") == 0)
-            pxlDiffuse(mod_img, arguments->offset, arguments->randChance, arguments->tol, arguments->xy_mode);
+            pxlDiffuse(mod_img, arguments->offset, arguments->randChance, arguments->tol, arguments->xy_mode, arguments->wrap, arguments->size);
 
         srand(i+5);
 
