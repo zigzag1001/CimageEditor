@@ -346,7 +346,6 @@ int main(int argc, char** argv) {
                 break;
             case 'a':
                 if (!isint(optarg)) {
-                    fprintf(stderr, "Invalid animate offset\n");
                     exit(1);
                 }
                 arguments.animate_iters = atoi(optarg);
@@ -429,6 +428,8 @@ int main(int argc, char** argv) {
             arguments.input = path;
             arguments.output = processed_path;
             modify(args);
+            printf("\r");
+            printf("Processed frame %s\n", de->d_name);
             arguments.iterations += arguments.animate_iters;
         }
         closedir(dr);
