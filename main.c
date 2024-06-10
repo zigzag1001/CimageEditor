@@ -360,6 +360,8 @@ int main(int argc, char** argv) {
                         "  -r randChance: Chance of effect happening (default 10)\n"
                         "  -m mode: Effect mode bleed/diffuse/wind/haze (default bleed)\n"
                         "  -a animate_iters: animate number of iters for each frame of video/gif (default 0)\n"
+                        "  -s size: Size of pixel block (default 1)\n"
+                        "  -w: Wrap around image\n"
                         "  -x: Only offset x axis\n"
                         "  -y: Only offset y axis\n"
                         "  -o output: Output file (default output.gif)\n"
