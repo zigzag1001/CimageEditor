@@ -67,3 +67,6 @@ Options:
   `-h` Show help
 
   `image`: Path to image
+
+  
+![pfp](https://github.com/user-attachments/assets/07ca5e0a-2755-4466-bc87-58645d984027)
