@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Processing with stb_image</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        #output { max-width: 100%; }
+    </style>
+</head>
+
+<style>
+    .controls {
+        margin: 0 auto;
+        max-width: 400px;
+        text-align: left;
+        font-size: 19px;
+        position: absolute;
+        z-index: 1;
+        background: rgba(215, 215, 215, 0.3);
+        padding: 15px;
+        font-weight: bold;
+        transition: background 0.3s;
+    }
+    .controls:hover {
+        background: rgba(215, 215, 215, 0.6);
+    }
+    .controls * {
+        margin: 5px;
+        zoom: 1.25;
+    }
+    .highlight {
+        background: rgba(130, 130, 130, 0.3);
+        transition: background 0.3s, border-color 0.3s;
+        border: inset;
+        border-color: lightgray;
+    }
+    .controls:hover .highlight {
+        background: rgba(130, 130, 130, 0.8);
+        border-color: gray;
+    }
+    .controls .wrap input {
+        appearance: auto;
+    }
+    .img-container {
+        display: flex;
+        justify-content: center;
+        top: 0;
+        left: 0;
+        position: absolute;
+        width: 100%;
+    }
+    .outputimg {
+        max-width: 100%;
+        max-height: 100%;
+    }
+</style>
+<link rel="stylesheet" href="https://unpkg.com/98.css@0.1.4/build/98.css" />
+<body>
+    <div class="controls">
+        <div class="imageInput highlight">
+            <label for="imageInput">Select an image:</label>
+            <input type="file" id="imageInput" accept="image/*">
+        </div>
+
+        <div class="randOffset highlight">
+            <label for="randOffset">Random offset:</label>
+            <input type="number" id="randOffset" value="4">
+        </div>
+
+        <div class="randChance">
+            <label for="randChance">Random chance:</label>
+            <input type="number" id="randChance" value="30">
+        </div>
+
+        <div class="tolerance">
+            <label for="tolerance">Brightness Tolerance:</label>
+            <input type="number" id="tolerance" value="128" min="0" max="255">
+        </div>
+
+        <div class="xy_mode">
+            <label for="xy_mode">Mode:</label>
+            <select id="xy_mode" value="0">
+                <option value="0">X mode</option>
+                <option value="1">Y mode</option>
+                <option value="2">XY mode</option>
+            </select>
+        </div>
+
+        <div class="wrap">
+            <label for="wrap">Wrap:</label>
+            <input type="checkbox" id="wrap" checked>
+        </div>
+
+        <div class="size highlight">
+            <label for="size">Px Size:</label>
+            <input type="number" id="size" value="10">
+        </div>
+
+        <div class="process">
+            <button id="process">Process Image</button>
+        </div>
+    </div>
+    <br><br>
+    <div class="img-container">
+        <img class="outputimg" id="outputimg" src="" alt="Output Image">
+    </div>
+
+    <script>
+        var Module = {
+            onRuntimeInitialized: function() {
+                console.log('WebAssembly module loaded');
+            }
+        };
+
+        document.getElementById('process').addEventListener('click', function() {
+            const randOffset = document.getElementById('randOffset').value;
+            const randChance = document.getElementById('randChance').value;
+            const tolerance = document.getElementById('tolerance').value;
+            const xy_mode = document.getElementById('xy_mode').value;
+            const wrap = document.getElementById('wrap').checked;
+            const size = document.getElementById('size').value;
+
+            var file = document.getElementById('imageInput').files[0];
+            var reader = new FileReader();
+            reader.onload = function(event) {
+                var arrayBuffer = event.target.result;
+                var uint8Array = new Uint8Array(arrayBuffer);
+                
+                try {
+                    var ptr = Module._malloc(uint8Array.length);
+                    if (!ptr) {
+                        throw new Error('Failed to allocate memory');
+                    }
+
+                    Module.HEAPU8.set(uint8Array, ptr);
+                    
+                    var resultPtr = Module._processImage(ptr, uint8Array.length, randOffset, randChance, tolerance, xy_mode, wrap, size);
+                    if (!resultPtr) {
+                        throw new Error('Image processing failed');
+                    }
+
+                    var result = Module.HEAPU32.subarray(resultPtr / 4, resultPtr / 4 + 4);
+                    var dataPtr = result[0];
+                    var width = result[1];
+                    var height = result[2];
+                    var channels = result[3];
+
+                    if (width <= 0 || height <= 0 || channels <= 0) {
+                        throw new Error('Invalid image dimensions or channels');
+                    }
+
+                    var imageData = new ImageData(
+                        new Uint8ClampedArray(Module.HEAPU8.buffer, dataPtr, width * height * channels),
+                        width,
+                        height
+                    );
+
+                    // var canvas = document.getElementById('output');
+                    var canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    var ctx = canvas.getContext('2d');
+                    ctx.putImageData(imageData, 0, 0);
+
+                    var outputimg = document.getElementById('outputimg');
+                    canvas.toBlob(function(blob) {
+                        outputimg.src = URL.createObjectURL(blob);
+                    }, 'image/png');
+
+                    Module._freeImageResult(resultPtr);
+                } catch (error) {
+                    console.error('Error processing image:', error);
+                    alert('Error processing image: ' + error.message);
+                } finally {
+                    if (ptr) Module._free(ptr);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    </script>
+    <script async src="image_processor.js"></script>
+</body>
+</html>

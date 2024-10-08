@@ -1,0 +1,1 @@
+emcc main.c -o image_processor.js -s WASM=1 -s EXPORTED_FUNCTIONS='["_processImage", "_freeImageResult", "_malloc", "_free"]' -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]' -O3 -sASSERTIONS -sALLOW_MEMORY_GROWTH
