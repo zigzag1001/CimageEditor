@@ -1,12 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image Processing with stb_image</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; }
-        #output { max-width: 100%; }
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+
+        #output {
+            max-width: 100%;
+        }
     </style>
 </head>
 
@@ -23,26 +30,32 @@
         font-weight: bold;
         transition: background 0.3s;
     }
+
     .controls:hover {
         background: rgba(215, 215, 215, 0.6);
     }
+
     .controls * {
         margin: 5px;
         zoom: 1.25;
     }
+
     .highlight {
         background: rgba(130, 130, 130, 0.3);
         transition: background 0.3s, border-color 0.3s;
-        border: inset;
+        border: outset;
         border-color: lightgray;
     }
+
     .controls:hover .highlight {
-        background: rgba(130, 130, 130, 0.8);
+        background: rgba(130, 130, 130, 0.7);
         border-color: gray;
     }
+
     .controls .wrap input {
         appearance: auto;
     }
+
     .img-container {
         display: flex;
         justify-content: center;
@@ -51,36 +64,94 @@
         position: absolute;
         width: 100%;
     }
+
     .outputimg {
         max-width: 100%;
         max-height: 100%;
     }
+
+    .img-container {
+        opacity: 0;
+        transition: opacity 0.5s ease-out;
+    }
 </style>
+
+<style>
+    /* Tooltip container */
+    .tooltip {
+        position: relative;
+        display: inline-block;
+        border-bottom: 1px dotted black;
+        /* If you want dots under the hoverable text */
+    }
+
+    /* Tooltip text */
+    .tooltip .tooltiptext {
+        opacity: 0.85;
+        visibility: hidden;
+        width: 120px;
+        background-color: black;
+        color: #fff;
+        text-align: center;
+        padding: 5px 0;
+        border-radius: 6px;
+
+        /* Position the tooltip text - see examples below! */
+        position: absolute;
+        z-index: 1;
+        font-weight: initial;
+        zoom: 1;
+        top: -9px;
+        left: 105%;
+    }
+
+    /* Show the tooltip text when you mouse over the tooltip container */
+    .tooltip:hover .tooltiptext {
+        visibility: visible;
+    }
+</style>
+
 <link rel="stylesheet" href="https://unpkg.com/98.css@0.1.4/build/98.css" />
+
 <body>
     <div class="controls">
         <div class="imageInput highlight">
-            <label for="imageInput">Select an image:</label>
-            <input type="file" id="imageInput" accept="image/*">
+            <label for="imageInput" class="tooltip">
+                <span class="tooltiptext">Select an image file</span>
+                Select an image:
+            </label>
+            <input type="file" id="imageInput" accept="image/*" required>
         </div>
 
         <div class="randOffset highlight">
-            <label for="randOffset">Random offset:</label>
+            <label for="randOffset" class="tooltip">
+                <span class="tooltiptext">Changes length of effect</span>
+                Random offset:
+            </label>
             <input type="number" id="randOffset" value="4">
         </div>
 
         <div class="randChance">
-            <label for="randChance">Random chance:</label>
+            <label for="randChance" class="tooltip">
+                <span class="tooltiptext">Chance of pixels below threshold to be affected</span>
+                Random chance:
+            </label>
             <input type="number" id="randChance" value="30">
         </div>
 
         <div class="tolerance">
-            <label for="tolerance">Brightness Tolerance:</label>
+            <label for="tolerance" class="tooltip">
+                <span class="tooltiptext">Pixels below this brightness will be affected (0-255)</span>
+                Brightness Tolerance:
+            </label>
             <input type="number" id="tolerance" value="128" min="0" max="255">
         </div>
 
         <div class="xy_mode">
-            <label for="xy_mode">Mode:</label>
+            <label for="xy_mode" class="tooltip">
+                <span class="tooltiptext">Direction of effect</span>
+                Mode:
+            </label>
             <select id="xy_mode" value="0">
                 <option value="0">X mode</option>
                 <option value="1">Y mode</option>
@@ -89,12 +160,18 @@
         </div>
 
         <div class="wrap">
-            <label for="wrap">Wrap:</label>
+            <label for="wrap" class="tooltip">
+                <span class="tooltiptext">If pixels should overflow to the other side</span>
+                Wrap:
+            </label>
             <input type="checkbox" id="wrap" checked>
         </div>
 
         <div class="size highlight">
-            <label for="size">Px Size:</label>
+            <label for="size" class="tooltip">
+                <span class="tooltiptext">Resolution of effect</span>
+                Px Size:
+            </label>
             <input type="number" id="size" value="10">
         </div>
 
@@ -104,17 +181,24 @@
     </div>
     <br><br>
     <div class="img-container">
-        <img class="outputimg" id="outputimg" src="" alt="Output Image">
+        <img class="outputimg" id="outputimg" src="examples/pixeltests.webp" alt="Output Image">
     </div>
 
     <script>
         var Module = {
-            onRuntimeInitialized: function() {
+            onRuntimeInitialized: function () {
                 console.log('WebAssembly module loaded');
             }
         };
+        setTimeout(function () {
+            var icont = document.querySelector('.img-container');
+            icont.style.opacity = 1;
+        }, 50);
 
-        document.getElementById('process').addEventListener('click', function() {
+        // to not load the sample image every time
+        const defaultImgBlob = fetch('examples/pixeltests.png').then(response => response.blob());
+
+        document.getElementById('process').addEventListener('click', function () {
             const randOffset = document.getElementById('randOffset').value;
             const randChance = document.getElementById('randChance').value;
             const tolerance = document.getElementById('tolerance').value;
@@ -122,12 +206,15 @@
             const wrap = document.getElementById('wrap').checked;
             const size = document.getElementById('size').value;
 
-            var file = document.getElementById('imageInput').files[0];
+            const fileInput = document.getElementById('imageInput');
+
+            var file = fileInput.files[0];
+
             var reader = new FileReader();
-            reader.onload = function(event) {
+            reader.onload = function (event) {
                 var arrayBuffer = event.target.result;
                 var uint8Array = new Uint8Array(arrayBuffer);
-                
+
                 try {
                     var ptr = Module._malloc(uint8Array.length);
                     if (!ptr) {
@@ -135,7 +222,7 @@
                     }
 
                     Module.HEAPU8.set(uint8Array, ptr);
-                    
+
                     var resultPtr = Module._processImage(ptr, uint8Array.length, randOffset, randChance, tolerance, xy_mode, wrap, size);
                     if (!resultPtr) {
                         throw new Error('Image processing failed');
@@ -165,7 +252,7 @@
                     ctx.putImageData(imageData, 0, 0);
 
                     var outputimg = document.getElementById('outputimg');
-                    canvas.toBlob(function(blob) {
+                    canvas.toBlob(function (blob) {
                         outputimg.src = URL.createObjectURL(blob);
                     }, 'image/png');
 
@@ -177,9 +264,16 @@
                     if (ptr) Module._free(ptr);
                 }
             };
-            reader.readAsArrayBuffer(file);
+            if (file) {
+                reader.readAsArrayBuffer(file);
+            } else {
+                const example = defaultImgBlob.then(blob => {
+                    reader.readAsArrayBuffer(blob);
+                });
+            }
         });
     </script>
     <script async src="image_processor.js"></script>
 </body>
+
 </html>
