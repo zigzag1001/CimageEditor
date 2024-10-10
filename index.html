@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Processing with stb_image</title>
+    <title>pixelWind Wasm</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -190,7 +190,7 @@
                 <span class="tooltiptext">Resolution of effect</span>
                 Px Size:
             </label>
-            <input type="number" id="size" value="10">
+            <input type="number" id="size" value="6">
         </div>
 
         <div class="process">
@@ -321,24 +321,28 @@
                     var repeat = 10;
                     if (process == "Wind") {
                         let gif = new GIF({
-                            workers: 2,
+                            workers: 4,
                             quality: 10,
-                            workerScript: './gif_js/gif.worker.js'
+                            workerScript: './gif_js/gif.worker.js',
                         });
                         for (let i = 0; i < repeat; i++) { // Use let to ensure correct scoping
                             console.log('Wind iteration:', i);
                             pixelWind(file, function (canvas) {
                                 var fps = 15;
                                 var ms = 1000 / fps;
-                                gif.addFrame(canvas, {delay: ms, copy: true});
+                                gif.addFrame(canvas, {delay: ms});
                                 updateProgress('Processing frames ' + (i + 1) + ' of ' + repeat);
 
                                 // Only call render when the last iteration is complete
-                                if (i === repeat - 1) {
+                                if (gif.frames.length === repeat) {
+                                    gif.on('progress', function (p) {
+                                        updateProgress('Rendering: ' + Math.round(p * 100) + '%');
+                                    });
                                     gif.on('finished', function (blob) {
                                         var outputimg = document.getElementById('outputimg');
                                         outputimg.src = URL.createObjectURL(blob);
-                                        updateProgress('');
+                                        updateProgress('frames: ' + gif.frames.length);
+                                        setTimeout(() => updateProgress(''), 1000);
                                     });
                                     gif.render();
                                 }
@@ -379,9 +383,11 @@
                         }
                     }
                     if (process == "Image") {
+                        updateProgress('Processing image...');
                         var outputimg = document.getElementById('outputimg');
                         pixelWind(file, function (canvas) {
                             canvas.toBlob(function (blob) {
+                                updateProgress('');
                                 outputimg.src = URL.createObjectURL(blob);
                             }, 'image/png');
                         }, randOffset, randChance, tolerance, xy_mode, wrap, size);
