@@ -76,12 +76,12 @@ void swapPxl(uint8_t* img, int x1, int y1, int x2, int y2) {
 
 void pxlBleed(uint8_t* img, int randOffset, int randChance, int tolerance, int xy_mode, int wrap, int size) {
     int dist, brightness, new_x, new_y;
-    uint8_t* orig_img = malloc(img_w * img_h * img_c);
-    memcpy(orig_img, img, img_w * img_h * img_c);
+    // uint8_t* orig_img = malloc(img_w * img_h * img_c);
+    // memcpy(orig_img, img, img_w * img_h * img_c);
     for (int y = 0; y < img_h; y += size) {
         for (int x = 0; x < img_w; x += size) {
-            brightness = getPxlBrightness(img, x, y);
-            if (brightness < tolerance || rand() % 100 < randChance) {
+            // brightness = getPxlBrightness(img, x, y);
+            if (brightness < getPxlBrightness(img, x, y) || rand() % 100 < randChance) {
                 dist = rand() % randOffset;
                 new_x = x + dist;
                 new_y = y + dist;
@@ -103,7 +103,7 @@ void pxlBleed(uint8_t* img, int randOffset, int randChance, int tolerance, int x
             }
         }
     }
-    free(orig_img);
+    // free(orig_img);
 }
 
 EMSCRIPTEN_KEEPALIVE
