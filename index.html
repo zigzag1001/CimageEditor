@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Glitch effect generator, written in C, using WASM for browser">
     <title>pixelWind Wasm</title>
     <style>
         body {
@@ -69,9 +70,11 @@
         display: flex;
         justify-content: center;
         top: 0;
-        left: 0;
-        position: absolute;
+        left: 50%;
+        position: fixed;
         width: 100%;
+        height: 100%;
+        transform: translateX(-50%);
     }
 
     .outputimg {
@@ -146,7 +149,7 @@
                 <span class="tooltiptext">Changes length of effect</span>
                 Random offset:
             </label>
-            <input type="number" id="randOffset" value="4">
+            <input type="number" id="randOffset" value="2">
         </div>
 
         <div class="randChance">
@@ -190,7 +193,15 @@
                 <span class="tooltiptext">Resolution of effect</span>
                 Px Size:
             </label>
-            <input type="number" id="size" value="6">
+            <input type="number" id="size" value="4">
+        </div>
+
+        <div class="fps">
+            <label for="fps" class="tooltip">
+                <span class="tooltiptext">Frames per second for gif</span>
+                FPS:
+            </label>
+            <input type="number" id="fps" value="15">
         </div>
 
         <div class="process">
@@ -314,6 +325,7 @@
                 const xy_mode = document.getElementById('xy_mode').value;
                 const wrap = document.getElementById('wrap').checked;
                 const size = document.getElementById('size').value;
+                const fps = document.getElementById('fps').value;
 
                 const fileInput = document.getElementById('imageInput');
 
@@ -328,7 +340,6 @@
                         for (let i = 0; i < repeat; i++) { // Use let to ensure correct scoping
                             console.log('Wind iteration:', i);
                             pixelWind(file, function (canvas) {
-                                var fps = 15;
                                 var ms = 1000 / fps;
                                 gif.addFrame(canvas, {delay: ms});
                                 updateProgress('Processing frames ' + (i + 1) + ' of ' + repeat);
@@ -341,6 +352,7 @@
                                     gif.on('finished', function (blob) {
                                         var outputimg = document.getElementById('outputimg');
                                         outputimg.src = URL.createObjectURL(blob);
+                                        outputimg.style.backgroundImage = 'url(' + URL.createObjectURL(blob) + ')';
                                         updateProgress('frames: ' + gif.frames.length);
                                         setTimeout(() => updateProgress(''), 1000);
                                     });
