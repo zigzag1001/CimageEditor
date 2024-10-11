@@ -81,7 +81,7 @@ void pxlBleed(uint8_t* img, int randOffset, int randChance, int tolerance, int x
     for (int y = 0; y < img_h; y += size) {
         for (int x = 0; x < img_w; x += size) {
             // brightness = getPxlBrightness(img, x, y);
-            if (brightness < getPxlBrightness(img, x, y) || rand() % 100 < randChance) {
+            if (getPxlBrightness(img, x, y) < tolerance || rand() % 100 < randChance) {
                 dist = rand() % randOffset;
                 new_x = x + dist;
                 new_y = y + dist;
