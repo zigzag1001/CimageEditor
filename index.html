@@ -1,16 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Processing with stb_image</title>
+    <meta name="description" content="Glitch effect generator, written in C, using WASM for browser">
+    <title>pixelWind Wasm</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; }
-        #output { max-width: 100%; }
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+
+        #output {
+            max-width: 100%;
+        }
     </style>
 </head>
 
 <style>
+    html {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    ::-webkit-scrollbar {
+        width: 0;
+    }
+
     .controls {
         margin: 0 auto;
         max-width: 400px;
@@ -23,64 +40,139 @@
         font-weight: bold;
         transition: background 0.3s;
     }
+
     .controls:hover {
         background: rgba(215, 215, 215, 0.6);
     }
+
     .controls * {
         margin: 5px;
         zoom: 1.25;
     }
+
     .highlight {
         background: rgba(130, 130, 130, 0.3);
         transition: background 0.3s, border-color 0.3s;
-        border: inset;
+        border: outset;
         border-color: lightgray;
     }
+
     .controls:hover .highlight {
-        background: rgba(130, 130, 130, 0.8);
+        background: rgba(130, 130, 130, 0.7);
         border-color: gray;
     }
+
     .controls .wrap input {
         appearance: auto;
     }
+
     .img-container {
         display: flex;
         justify-content: center;
         top: 0;
-        left: 0;
-        position: absolute;
+        left: 50%;
+        position: fixed;
         width: 100%;
+        height: 100%;
+        transform: translateX(-50%);
     }
+
     .outputimg {
         max-width: 100%;
         max-height: 100%;
     }
+
+    .img-container {
+        opacity: 0;
+        transition: opacity 0.5s ease-out;
+    }
+
+    .progress {
+        position: absolute;
+        top: 66px;
+        right: 90px;
+        font-size: xx-large;
+        font-weight: bold;
+    }
 </style>
+
+<style>
+    /* Tooltip container */
+    .tooltip {
+        position: relative;
+        display: inline-block;
+        border-bottom: 1px dotted black;
+        /* If you want dots under the hoverable text */
+    }
+
+    /* Tooltip text */
+    .tooltip .tooltiptext {
+        opacity: 0.85;
+        visibility: hidden;
+        width: 120px;
+        background-color: black;
+        color: #fff;
+        text-align: center;
+        padding: 5px;
+        border-radius: 6px;
+
+        /* Position the tooltip text - see examples below! */
+        position: absolute;
+        z-index: 1;
+        font-weight: initial;
+        zoom: 1;
+        top: -9px;
+        left: 105%;
+    }
+
+    /* Show the tooltip text when you mouse over the tooltip container */
+    .tooltip:hover .tooltiptext {
+        visibility: visible;
+    }
+</style>
+
 <link rel="stylesheet" href="https://unpkg.com/98.css@0.1.4/build/98.css" />
+<script src="./gif_js/gif.js"></script>
+
 <body>
     <div class="controls">
         <div class="imageInput highlight">
-            <label for="imageInput">Select an image:</label>
-            <input type="file" id="imageInput" accept="image/*">
+            <label for="imageInput" class="tooltip">
+                <span class="tooltiptext">Select an image file</span>
+                Select an image:
+            </label>
+            <input type="file" id="imageInput" accept="image/*" required>
         </div>
 
         <div class="randOffset highlight">
-            <label for="randOffset">Random offset:</label>
-            <input type="number" id="randOffset" value="4">
+            <label for="randOffset" class="tooltip">
+                <span class="tooltiptext">Changes length of effect</span>
+                Random offset:
+            </label>
+            <input type="number" id="randOffset" value="2">
         </div>
 
         <div class="randChance">
-            <label for="randChance">Random chance:</label>
+            <label for="randChance" class="tooltip">
+                <span class="tooltiptext">Chance of pixels below threshold to be affected</span>
+                Random chance:
+            </label>
             <input type="number" id="randChance" value="30">
         </div>
 
         <div class="tolerance">
-            <label for="tolerance">Brightness Tolerance:</label>
+            <label for="tolerance" class="tooltip">
+                <span class="tooltiptext">Pixels below this brightness will be affected (0-255)</span>
+                Brightness Tolerance:
+            </label>
             <input type="number" id="tolerance" value="128" min="0" max="255">
         </div>
 
         <div class="xy_mode">
-            <label for="xy_mode">Mode:</label>
+            <label for="xy_mode" class="tooltip">
+                <span class="tooltiptext">Direction of effect</span>
+                Mode:
+            </label>
             <select id="xy_mode" value="0">
                 <option value="0">X mode</option>
                 <option value="1">Y mode</option>
@@ -89,45 +181,67 @@
         </div>
 
         <div class="wrap">
-            <label for="wrap">Wrap:</label>
+            <label for="wrap" class="tooltip">
+                <span class="tooltiptext">If pixels should overflow to the other side</span>
+                Wrap:
+            </label>
             <input type="checkbox" id="wrap" checked>
         </div>
 
         <div class="size highlight">
-            <label for="size">Px Size:</label>
-            <input type="number" id="size" value="10">
+            <label for="size" class="tooltip">
+                <span class="tooltiptext">Resolution of effect</span>
+                Px Size:
+            </label>
+            <input type="number" id="size" value="4">
+        </div>
+
+        <div class="fps">
+            <label for="fps" class="tooltip">
+                <span class="tooltiptext">Frames per second for gif</span>
+                FPS:
+            </label>
+            <input type="number" id="fps" value="15">
         </div>
 
         <div class="process">
-            <button id="process">Process Image</button>
+            <button id="process">Image</button>
+            <button id="process">Wind</button>
+            <!-- <button id="process">Bleed</button> -->
         </div>
     </div>
     <br><br>
     <div class="img-container">
-        <img class="outputimg" id="outputimg" src="" alt="Output Image">
+        <img class="outputimg" id="outputimg" src="examples/pixeltests.webp" alt="Output Image">
     </div>
+    <div class="progress"></div>
 
     <script>
         var Module = {
-            onRuntimeInitialized: function() {
+            onRuntimeInitialized: function () {
                 console.log('WebAssembly module loaded');
             }
         };
+        setTimeout(function () {
+            var icont = document.querySelector('.img-container');
+            icont.style.opacity = 1;
+        }, 50);
 
-        document.getElementById('process').addEventListener('click', function() {
-            const randOffset = document.getElementById('randOffset').value;
-            const randChance = document.getElementById('randChance').value;
-            const tolerance = document.getElementById('tolerance').value;
-            const xy_mode = document.getElementById('xy_mode').value;
-            const wrap = document.getElementById('wrap').checked;
-            const size = document.getElementById('size').value;
+        // to not load the sample image every time
+        const defaultImgBlob = fetch('examples/pixeltests.png').then(response => response.blob());
 
-            var file = document.getElementById('imageInput').files[0];
+        function updateProgress(progress) {
+            var progressBar = document.querySelector('.progress');
+            progressBar.innerHTML = progress;
+        }
+
+        // returns single modified blob
+        function pixelWind(file, callback, randOffset, randChance, tolerance, xy_mode, wrap, size) {
+            console.log('Processing image...', file);
             var reader = new FileReader();
-            reader.onload = function(event) {
+            reader.onload = function (event) {
                 var arrayBuffer = event.target.result;
                 var uint8Array = new Uint8Array(arrayBuffer);
-                
                 try {
                     var ptr = Module._malloc(uint8Array.length);
                     if (!ptr) {
@@ -135,7 +249,7 @@
                     }
 
                     Module.HEAPU8.set(uint8Array, ptr);
-                    
+
                     var resultPtr = Module._processImage(ptr, uint8Array.length, randOffset, randChance, tolerance, xy_mode, wrap, size);
                     if (!resultPtr) {
                         throw new Error('Image processing failed');
@@ -157,19 +271,20 @@
                         height
                     );
 
-                    // var canvas = document.getElementById('output');
                     var canvas = document.createElement('canvas');
                     canvas.width = width;
                     canvas.height = height;
                     var ctx = canvas.getContext('2d');
                     ctx.putImageData(imageData, 0, 0);
 
-                    var outputimg = document.getElementById('outputimg');
-                    canvas.toBlob(function(blob) {
-                        outputimg.src = URL.createObjectURL(blob);
-                    }, 'image/png');
+                    callback(canvas);
+
+                    // canvas.toBlob(function (blob) {
+                    //     callback(blob);
+                    // }, 'image/png');
 
                     Module._freeImageResult(resultPtr);
+
                 } catch (error) {
                     console.error('Error processing image:', error);
                     alert('Error processing image: ' + error.message);
@@ -177,9 +292,123 @@
                     if (ptr) Module._free(ptr);
                 }
             };
-            reader.readAsArrayBuffer(file);
+            if (file) {
+                reader.readAsArrayBuffer(file);
+            }
+        }
+
+        function getImageFile(fileInput, defaultImgBlob) {
+            return new Promise((resolve, reject) => {
+                var file = fileInput.files[0];
+                if (file) {
+                    resolve(file);
+                } else {
+                    // If no file is selected, resolve with the default image
+                    defaultImgBlob.then(blob => {
+                        resolve(new File([blob], 'default.png'));
+                    }).catch(reject); // Handle any errors in loading the default image
+                }
+            });
+        }
+
+        var buttons = document.querySelectorAll('#process');
+
+        buttons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                var process = this.innerHTML;
+                // Image - Process input image once and output
+                // Wind - Process image multiple independent times and output as gif
+                // Bleed - Process image multiple times with each iteration building on the last, output as gif
+                const randOffset = document.getElementById('randOffset').value;
+                const randChance = document.getElementById('randChance').value;
+                const tolerance = document.getElementById('tolerance').value;
+                const xy_mode = document.getElementById('xy_mode').value;
+                const wrap = document.getElementById('wrap').checked;
+                const size = document.getElementById('size').value;
+                const fps = document.getElementById('fps').value;
+
+                const fileInput = document.getElementById('imageInput');
+
+                getImageFile(fileInput, defaultImgBlob).then(file => {
+                    var repeat = 10;
+                    if (process == "Wind") {
+                        let gif = new GIF({
+                            workers: 4,
+                            quality: 10,
+                            workerScript: './gif_js/gif.worker.js',
+                        });
+                        for (let i = 0; i < repeat; i++) { // Use let to ensure correct scoping
+                            console.log('Wind iteration:', i);
+                            pixelWind(file, function (canvas) {
+                                var ms = 1000 / fps;
+                                gif.addFrame(canvas, {delay: ms});
+                                updateProgress('Processing frames ' + (i + 1) + ' of ' + repeat);
+
+                                // Only call render when the last iteration is complete
+                                if (gif.frames.length === repeat) {
+                                    gif.on('progress', function (p) {
+                                        updateProgress('Rendering: ' + Math.round(p * 100) + '%');
+                                    });
+                                    gif.on('finished', function (blob) {
+                                        var outputimg = document.getElementById('outputimg');
+                                        outputimg.src = URL.createObjectURL(blob);
+                                        outputimg.style.backgroundImage = 'url(' + URL.createObjectURL(blob) + ')';
+                                        updateProgress('frames: ' + gif.frames.length);
+                                        setTimeout(() => updateProgress(''), 1000);
+                                    });
+                                    gif.render();
+                                }
+                            }, randOffset, randChance, tolerance, xy_mode, wrap, size);
+                        }
+                    }
+                    if (process == "Bleed") {
+                        let gif = new GIF({
+                            workers: 2,
+                            quality: 10,
+                            workerScript: './gif_js/gif.worker.js'
+                        });
+                        var img = new Image();
+                        img.src = URL.createObjectURL(file);
+                        img.onload = function () {
+                            var canvas = document.createElement('canvas');
+                            var ctx = canvas.getContext('2d');
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            ctx.drawImage(img, 0, 0);
+                            var imgData = ctx.getImageData(0, 0, img.width, img.height);
+                            var imgDataArray = new Uint8Array(imgData.data);
+                            var imgDataArrayCopy = new Uint8Array(imgDataArray);
+                            for (var i = 0; i < repeat; i++) {
+                                pixelWind(file, function (blob) {
+                                    gif.addFrame(blob, {
+                                        delay: 100
+                                    });
+                                    if (i == repeat - 1) {
+                                        gif.on('finished', function (blob) {
+                                            var outputimg = document.getElementById('outputimg');
+                                            outputimg.src = URL.createObjectURL(blob);
+                                        });
+                                        gif.render();
+                                    }
+                                }, randOffset, randChance, tolerance, xy_mode, wrap, size);
+                            }
+                        }
+                    }
+                    if (process == "Image") {
+                        updateProgress('Processing image...');
+                        var outputimg = document.getElementById('outputimg');
+                        pixelWind(file, function (canvas) {
+                            canvas.toBlob(function (blob) {
+                                updateProgress('');
+                                outputimg.src = URL.createObjectURL(blob);
+                            }, 'image/png');
+                        }, randOffset, randChance, tolerance, xy_mode, wrap, size);
+                    }
+                });
+            });
         });
     </script>
     <script async src="image_processor.js"></script>
 </body>
+
 </html>
