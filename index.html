@@ -204,6 +204,14 @@
             <input type="number" id="fps" value="15">
         </div>
 
+        <div class="frames">
+            <label for="frames" class="tooltip">
+                <span class="tooltiptext">Number of frames in gif</span>
+                Frames:
+            </label>
+            <input type="number" id="frames" value="10" min="1">
+        </div>
+
         <div class="process">
             <button id="process">Image</button>
             <button id="process">Wind</button>
@@ -233,6 +241,13 @@
         function updateProgress(progress) {
             var progressBar = document.querySelector('.progress');
             progressBar.innerHTML = progress;
+        }
+
+        // input is canvas, output is canvas
+        function pixelWindCanvas(canvas, callback, randOffset, randChance, tolerance, xy_mode, wrap, size) {
+            var blob = canvas.toBlob(function (blob) {
+                pixelWind(blob, callback, randOffset, randChance, tolerance, xy_mode, wrap, size);
+            });
         }
 
         // returns single modified blob
@@ -279,10 +294,6 @@
 
                     callback(canvas);
 
-                    // canvas.toBlob(function (blob) {
-                    //     callback(blob);
-                    // }, 'image/png');
-
                     Module._freeImageResult(resultPtr);
 
                 } catch (error) {
@@ -316,9 +327,6 @@
         buttons.forEach(function (button) {
             button.addEventListener('click', function () {
                 var process = this.innerHTML;
-                // Image - Process input image once and output
-                // Wind - Process image multiple independent times and output as gif
-                // Bleed - Process image multiple times with each iteration building on the last, output as gif
                 const randOffset = document.getElementById('randOffset').value;
                 const randChance = document.getElementById('randChance').value;
                 const tolerance = document.getElementById('tolerance').value;
@@ -326,33 +334,33 @@
                 const wrap = document.getElementById('wrap').checked;
                 const size = document.getElementById('size').value;
                 const fps = document.getElementById('fps').value;
+                const frames = document.getElementById('frames').value;
 
                 const fileInput = document.getElementById('imageInput');
 
                 getImageFile(fileInput, defaultImgBlob).then(file => {
-                    var repeat = 10;
+                    // Wind - Process image multiple independent times and output as gif
                     if (process == "Wind") {
                         let gif = new GIF({
                             workers: 4,
                             quality: 10,
                             workerScript: './gif_js/gif.worker.js',
                         });
-                        for (let i = 0; i < repeat; i++) { // Use let to ensure correct scoping
+                        for (let i = 0; i < frames; i++) { // Use let to ensure correct scoping
                             console.log('Wind iteration:', i);
                             pixelWind(file, function (canvas) {
                                 var ms = 1000 / fps;
                                 gif.addFrame(canvas, {delay: ms});
-                                updateProgress('Processing frames ' + (i + 1) + ' of ' + repeat);
+                                updateProgress('Processing frames ' + (i + 1) + ' of ' + frames);
 
                                 // Only call render when the last iteration is complete
-                                if (gif.frames.length === repeat) {
+                                if (gif.frames.length == frames) {
                                     gif.on('progress', function (p) {
                                         updateProgress('Rendering: ' + Math.round(p * 100) + '%');
                                     });
                                     gif.on('finished', function (blob) {
                                         var outputimg = document.getElementById('outputimg');
                                         outputimg.src = URL.createObjectURL(blob);
-                                        outputimg.style.backgroundImage = 'url(' + URL.createObjectURL(blob) + ')';
                                         updateProgress('frames: ' + gif.frames.length);
                                         setTimeout(() => updateProgress(''), 1000);
                                     });
@@ -361,39 +369,15 @@
                             }, randOffset, randChance, tolerance, xy_mode, wrap, size);
                         }
                     }
+                    // Bleed - Feed output of previous iteration as input for next iteration output as gif
                     if (process == "Bleed") {
                         let gif = new GIF({
-                            workers: 2,
+                            workers: 4,
                             quality: 10,
                             workerScript: './gif_js/gif.worker.js'
                         });
-                        var img = new Image();
-                        img.src = URL.createObjectURL(file);
-                        img.onload = function () {
-                            var canvas = document.createElement('canvas');
-                            var ctx = canvas.getContext('2d');
-                            canvas.width = img.width;
-                            canvas.height = img.height;
-                            ctx.drawImage(img, 0, 0);
-                            var imgData = ctx.getImageData(0, 0, img.width, img.height);
-                            var imgDataArray = new Uint8Array(imgData.data);
-                            var imgDataArrayCopy = new Uint8Array(imgDataArray);
-                            for (var i = 0; i < repeat; i++) {
-                                pixelWind(file, function (blob) {
-                                    gif.addFrame(blob, {
-                                        delay: 100
-                                    });
-                                    if (i == repeat - 1) {
-                                        gif.on('finished', function (blob) {
-                                            var outputimg = document.getElementById('outputimg');
-                                            outputimg.src = URL.createObjectURL(blob);
-                                        });
-                                        gif.render();
-                                    }
-                                }, randOffset, randChance, tolerance, xy_mode, wrap, size);
-                            }
-                        }
                     }
+                    // Image - Process input image once and output
                     if (process == "Image") {
                         updateProgress('Processing image...');
                         var outputimg = document.getElementById('outputimg');
